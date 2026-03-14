@@ -1,5 +1,6 @@
 const userModel = require("../models/userModel");
 const jwt = require("jsonwebtoken");
+const emailService = require("../services/emailService");
 
 // REGISTER
 const userRegisterController = async (req, res) => {
@@ -29,7 +30,7 @@ const userRegisterController = async (req, res) => {
     const token = jwt.sign(
       { userId: userCreated._id },
       process.env.JWT_SECRET,
-      { expiresIn: "3d" },
+      { expiresIn: "3d" }
     );
 
     res.cookie("token", token, {
@@ -37,11 +38,18 @@ const userRegisterController = async (req, res) => {
       maxAge: 3 * 24 * 60 * 60 * 1000,
     });
 
+    // send email
+    await emailService.sendRegisterationEmail(
+      userCreated.email,
+      userCreated.name
+    );
+
     return res.status(201).json({
       message: "User registered successfully",
       user: userCreated,
       token,
     });
+
   } catch (error) {
     return res.status(500).json({
       message: "Something went wrong",
@@ -71,16 +79,17 @@ const userLoginController = async (req, res) => {
       });
     }
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "3d",
-    });
+    const token = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "3d" }
+    );
 
     res.cookie("token", token, {
       httpOnly: true,
       maxAge: 3 * 24 * 60 * 60 * 1000,
     });
 
-    // remove password before sending user
     user.password = undefined;
 
     return res.status(200).json({
@@ -88,6 +97,7 @@ const userLoginController = async (req, res) => {
       user,
       token,
     });
+
   } catch (error) {
     return res.status(500).json({
       message: "Something went wrong",
