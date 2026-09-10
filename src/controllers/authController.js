@@ -1,6 +1,7 @@
 const userModel = require("../models/userModel");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const emailService = require("../services/emailService");
 
 const registerUser = async (req, res) => {
   try {
@@ -36,7 +37,9 @@ const registerUser = async (req, res) => {
         name: newUser.name,
       },
       message: "User registered successfully",
+      token,
     });
+    await emailService.sendRegistrationEmail(newUser.email, newUser.name);
   } catch (err) {
     console.error(err);
     res.status(500).json({
@@ -44,7 +47,6 @@ const registerUser = async (req, res) => {
     });
   }
 };
-
 
 const loginUser = async (req, res) => {
   try {
@@ -54,28 +56,18 @@ const loginUser = async (req, res) => {
         .status(400)
         .json({ message: "Please provide email and password" });
     }
-    const user = await userModel
-      .findOne({ email })
-      .select("+password");
+    const user = await userModel.findOne({ email }).select("+password");
 
     if (!user) {
-      return res
-        .status(401)
-        .json({ message: "Invalid email or password" });
+      return res.status(401).json({ message: "Invalid email or password" });
     }
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
-      return res
-        .status(401)
-        .json({ message: "Invalid email or password" });
+      return res.status(401).json({ message: "Invalid email or password" });
     }
-    const token = jwt.sign(
-      { id: user._id },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "1d",
-      }
-    );
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1d",
+    });
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
